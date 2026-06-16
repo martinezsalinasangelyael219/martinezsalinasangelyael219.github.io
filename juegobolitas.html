@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juego de Peleas con Disparos</title>
+
+<style>
+body{
+    margin:0;
+    overflow:hidden;
+    background:#222;
+    font-family:Arial,sans-serif;
+}
+
+#arena{
+    width:100vw;
+    height:100vh;
+    background:linear-gradient(skyblue, lightgreen);
+    position:relative;
+    overflow:hidden;
+}
+
+.jugador{
+    width:80px;
+    height:80px;
+    position:absolute;
+    bottom:0;
+}
+
+#p1{
+    background:blue;
+}
+
+#p2{
+    background:red;
+}
+
+.bala{
+    width:15px;
+    height:15px;
+    border-radius:50%;
+    position:absolute;
+}
+
+.azul{
+    background:cyan;
+}
+
+.roja{
+    background:orange;
+}
+
+.barra{
+    width:300px;
+    height:25px;
+    background:#555;
+    position:absolute;
+    top:20px;
+    border:2px solid black;
+}
+
+#contenedor1{
+    left:20px;
+}
+
+#contenedor2{
+    right:20px;
+}
+
+.vida{
+    height:100%;
+    background:limegreen;
+    width:100%;
+}
+
+#mensaje{
+    position:absolute;
+    top:60px;
+    width:100%;
+    text-align:center;
+    font-size:40px;
+    color:white;
+    font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<div id="arena">
+
+    <div id="contenedor1" class="barra">
+        <div id="vida1" class="vida"></div>
+    </div>
+
+    <div id="contenedor2" class="barra">
+        <div id="vida2" class="vida"></div>
+    </div>
+
+    <div id="mensaje"></div>
+
+    <div id="p1" class="jugador"></div>
+    <div id="p2" class="jugador"></div>
+
+</div>
+
+<script>
+const arena = document.getElementById("arena");
+
+const p1 = {
+    x:100,
+    y:0,
+    vy:0,
+    vida:100,
+    el:document.getElementById("p1")
+};
+
+const p2 = {
+    x:800,
+    y:0,
+    vy:0,
+    vida:100,
+    el:document.getElementById("p2")
+};
+
+const keys = {};
+const balas = [];
+let juegoTerminado = false;
+
+document.addEventListener("keydown",e=>{
+    keys[e.key.toLowerCase()] = true;
+});
+
+document.addEventListener("keyup",e=>{
+    keys[e.key.toLowerCase()] = false;
+});
+
+function actualizarVida(){
+    document.getElementById("vida1").style.width = p1.vida + "%";
+    document.getElementById("vida2").style.width = p2.vida + "%";
+}
+
+function disparar(jugador,color,direccion){
+
+    const bala = document.createElement("div");
+    bala.className = "bala " + color;
+
+    bala.style.left = (jugador.x + 32) + "px";
+    bala.style.bottom = (jugador.y + 35) + "px";
+
+    arena.appendChild(bala);
+
+    balas.push({
+        el:bala,
+        x:jugador.x + 32,
+        y:jugador.y + 35,
+        dir:direccion
+    });
+}
+
+let cooldown1 = 0;
+let cooldown2 = 0;
+
+function terminar(texto){
+    juegoTerminado = true;
+    document.getElementById("mensaje").textContent = texto;
+}
+
+function gameLoop(){
+
+    if(!juegoTerminado){
+
+        // Movimiento Azul
+        if(keys["a"]) p1.x -= 5;
+        if(keys["d"]) p1.x += 5;
+
+        if(keys["w"] && p1.y === 0){
+            p1.vy = 15;
+        }
+
+        if(keys["f"] && cooldown1 <= 0){
+            disparar(p1,"azul",1);
+            cooldown1 = 25;
+        }
+
+        // Movimiento Rojo
+        if(keys["arrowleft"]) p2.x -= 5;
+        if(keys["arrowright"]) p2.x += 5;
+
+        if(keys["arrowup"] && p2.y === 0){
+            p2.vy = 15;
+        }
+
+        if(keys["l"] && cooldown2 <= 0){
+            disparar(p2,"roja",-1);
+            cooldown2 = 25;
+        }
+
+        cooldown1--;
+        cooldown2--;
+
+        // Saltos
+        [p1,p2].forEach(p=>{
+
+            p.y += p.vy;
+            p.vy -= 0.8;
+
+            if(p.y < 0){
+                p.y = 0;
+                p.vy = 0;
+            }
+
+            p.el.style.left = p.x + "px";
+            p.el.style.bottom = p.y + "px";
+        });
+
+        // Movimiento de balas
+        for(let i = balas.length-1; i >= 0; i--){
+
+            let b = balas[i];
+
+            b.x += 10 * b.dir;
+
+            b.el.style.left = b.x + "px";
+
+            // Golpea al rojo
+            if(
+                b.dir > 0 &&
+                b.x > p2.x &&
+                b.x < p2.x + 80 &&
+                b.y > p2.y &&
+                b.y < p2.y + 80
+            ){
+                p2.vida -= 10;
+                actualizarVida();
+
+                b.el.remove();
+                balas.splice(i,1);
+
+                if(p2.vida <= 0){
+                    terminar("¡Gana Azul!");
+                }
+
+                continue;
+            }
+
+            // Golpea al azul
+            if(
+                b.dir < 0 &&
+                b.x > p1.x &&
+                b.x < p1.x + 80 &&
+                b.y > p1.y &&
+                b.y < p1.y + 80
+            ){
+                p1.vida -= 10;
+                actualizarVida();
+
+                b.el.remove();
+                balas.splice(i,1);
+
+                if(p1.vida <= 0){
+                    terminar("¡Gana Rojo!");
+                }
+
+                continue;
+            }
+
+            if(b.x < -50 || b.x > window.innerWidth + 50){
+                b.el.remove();
+                balas.splice(i,1);
+            }
+        }
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+actualizarVida();
+gameLoop();
+</script>
+
+</body>
+</html>
